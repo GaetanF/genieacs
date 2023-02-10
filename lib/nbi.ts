@@ -31,6 +31,7 @@ import { ping } from "./ping";
 import * as logger from "./logger";
 import { flattenDevice } from "./mongodb-functions";
 import { getSocketEndpoints } from "./server";
+import { pipeline, Readable } from "stream";
 
 const DEVICE_TASKS_REGEX = /^\/devices\/([a-zA-Z0-9\-_%]+)\/tasks\/?$/;
 const TASKS_REGEX = /^\/tasks\/([a-zA-Z0-9\-_%]+)(\/[a-zA-Z_]*)?$/;
@@ -39,6 +40,7 @@ const TAGS_REGEX =
 const PRESETS_REGEX = /^\/presets\/([a-zA-Z0-9\-_%]+)\/?$/;
 const OBJECTS_REGEX = /^\/objects\/([a-zA-Z0-9\-_%]+)\/?$/;
 const FILES_REGEX = /^\/files\/([a-zA-Z0-9%!*'();:@&=+$,?#[\]\-_.~]+)\/?$/;
+const UPLOADS_REGEX = /^\/uploads\/([a-zA-Z0-9%!*'();:@&=+$,?#[\]\-_.~]+)\/?$/;
 const PING_REGEX = /^\/ping\/([a-zA-Z0-9\-_.:]+)\/?$/;
 const QUERY_REGEX = /^\/([a-zA-Z0-9_]+)\/?$/;
 const DELETE_DEVICE_REGEX = /^\/devices\/([a-zA-Z0-9\-_%]+)\/?$/;
@@ -53,18 +55,22 @@ const collections: Record<string, Collection> = {
   presets: null as Collection,
   objects: null as Collection,
   files: null as Collection,
+  uploads: null as Collection,
   provisions: null as Collection,
   virtualParameters: null as Collection,
   faults: null as Collection,
 };
 let filesBucket: GridFSBucket;
+let uploadsBucket: GridFSBucket;
 
 onConnect(async (db) => {
   for (const k of Object.keys(collections)) {
     if (k === "files") collections[k] = db.collection("fs.files");
+    else if (k === "uploads") collections[k] = db.collection("uploads.files");
     else collections[k] = db.collection(k);
   }
   filesBucket = new GridFSBucket(db);
+  uploadsBucket = new GridFSBucket(db);
 });
 
 function throwError(err: Error, httpResponse?: ServerResponse): never {
@@ -718,6 +724,57 @@ export function listener(
         });
       } else {
         response.writeHead(405, { Allow: "PUT, DELETE" });
+        response.end("405 Method Not Allowed");
+      }
+    } else if (UPLOADS_REGEX.test(urlParts.pathname)) {
+      const filename = decodeURIComponent(
+        UPLOADS_REGEX.exec(urlParts.pathname)[1]
+      );
+      if (request.method === "GET") {
+
+        collections['uploads'].findOne({ _id: filename }).then((file)=>{
+          if(!file){
+            response.writeHead(404);
+            response.end();
+          }else {
+            const downloadStream = uploadsBucket.openDownloadStreamByName(filename);
+
+            downloadStream.on('readable', () => {
+              const upload_chunks: Buffer[] = [];
+              let chunk;
+              while (null !== (chunk = downloadStream.read())) {
+                upload_chunks.push(chunk)
+                console.log(`Read ${chunk.length} bytes of data...`);
+              }
+              response.writeHead(200, {
+                "Content-Type": "application/octet-stream",
+                "Content-Length": file.length,
+              });
+              pipeline(Readable.from(chunks), response, () => {
+                // Ignore errors resulting from client disconnecting
+              });
+            })
+          }
+        }).catch(()=>{
+          response.writeHead(404);
+          response.end();
+        })
+      } else if (request.method === "DELETE") {
+        uploadsBucket.delete(filename as unknown as ObjectId, (err) => {
+          if (err) {
+            if (err.message.startsWith("FileNotFound")) {
+              response.writeHead(404);
+              response.end("404 Not Found");
+              return;
+            }
+            return void throwError(err, response);
+          }
+
+          response.writeHead(200);
+          response.end();
+        });
+      } else {
+        response.writeHead(405, { Allow: "GET, DELETE" });
         response.end("405 Method Not Allowed");
       }
     } else if (PING_REGEX.test(urlParts.pathname)) {
