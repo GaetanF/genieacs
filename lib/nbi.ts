@@ -40,7 +40,7 @@ const TAGS_REGEX =
 const PRESETS_REGEX = /^\/presets\/([a-zA-Z0-9\-_%]+)\/?$/;
 const OBJECTS_REGEX = /^\/objects\/([a-zA-Z0-9\-_%]+)\/?$/;
 const FILES_REGEX = /^\/files\/([a-zA-Z0-9%!*'();:@&=+$,?#[\]\-_.~]+)\/?$/;
-const UPLOADS_REGEX = /^\/uploads\/([a-zA-Z0-9%!*'();:@&=+$,?#[\]\-_.~]+)\/?$/;
+const UPLOADS_REGEX = /^\/uploads\/([a-zA-Z0-9%!*'();:@&=+$,?#[\]\/\-_.~]+)\/?$/;
 const PING_REGEX = /^\/ping\/([a-zA-Z0-9\-_.:]+)\/?$/;
 const QUERY_REGEX = /^\/([a-zA-Z0-9_]+)\/?$/;
 const DELETE_DEVICE_REGEX = /^\/devices\/([a-zA-Z0-9\-_%]+)\/?$/;
@@ -70,7 +70,7 @@ onConnect(async (db) => {
     else collections[k] = db.collection(k);
   }
   filesBucket = new GridFSBucket(db);
-  uploadsBucket = new GridFSBucket(db);
+  uploadsBucket = new GridFSBucket(db, { bucketName: "uploads" });
 });
 
 function throwError(err: Error, httpResponse?: ServerResponse): never {
@@ -737,23 +737,16 @@ export function listener(
             response.writeHead(404);
             response.end();
           }else {
-            const downloadStream = uploadsBucket.openDownloadStreamByName(filename);
-
-            downloadStream.on('readable', () => {
-              const upload_chunks: Buffer[] = [];
-              let chunk;
-              while (null !== (chunk = downloadStream.read())) {
-                upload_chunks.push(chunk)
-                console.log(`Read ${chunk.length} bytes of data...`);
-              }
-              response.writeHead(200, {
-                "Content-Type": "application/octet-stream",
-                "Content-Length": file.length,
+            response.writeHead(200, {
+              "Content-Type": "application/octet-stream",
+              "Content-Length": file.length,
+            });
+            uploadsBucket.openDownloadStreamByName(filename).pipe(response)
+              .on('error', () => {
+                response.writeHead(404)
+              }).on('end', ()=>{
+                response.end();
               });
-              pipeline(Readable.from(chunks), response, () => {
-                // Ignore errors resulting from client disconnecting
-              });
-            })
           }
         }).catch(()=>{
           response.writeHead(404);
