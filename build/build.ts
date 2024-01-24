@@ -139,7 +139,7 @@ function generateSymbol(id: string, svgStr: string): string {
 }
 
 async function getBuildMetadata(): Promise<string> {
-  const date = new Date().toISOString().slice(2, 10).replaceAll("-", "");
+  const date = new Date().toISOString().slice(2, 10).replace("-", "");
 
   const [commit, diff, newFiles] = await Promise.all([
     execAsync("git rev-parse HEAD"),
