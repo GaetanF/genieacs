@@ -166,7 +166,7 @@ function renderTable(
         title: "Show more records",
         onclick: showMoreCallback,
         disabled:
-          !data.length || records.length >= Math.min(MAX_PAGE_SIZE, total),
+          !data.length || records.length >= Math.min(MAX_PAGE_SIZE as number, total),
       },
       "More",
     ),
