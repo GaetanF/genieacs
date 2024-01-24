@@ -47,7 +47,7 @@ export async function connect(): Promise<void> {
   collections.cache = db.collection("cache");
   collections.locks = db.collection("locks");
   filesBucket = new GridFSBucket(db);
-  uploadsBucket = new GridFSBucket(db);
+  uploadsBucket = new GridFSBucket(db, { bucketName: "uploads" });
 
   await Promise.all([
     collections.tasks.createIndex({ device: 1, timestamp: 1 }),
