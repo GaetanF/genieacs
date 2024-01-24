@@ -37,7 +37,7 @@ const comps = {
   ping,
   "device-link": deviceLink,
   "long-text": longTextComponent,
-  "device-uploads", deviceUploads,
+  "device-uploads": deviceUploads,
   loading: loading,
 };
 
