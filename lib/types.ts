@@ -524,6 +524,7 @@ export interface UiConfig {
     groups?: Record<string, unknown>;
   };
   pageSize?: Expression;
+  maxPageSize?: Expression;
 }
 
 export interface SoapMessage {

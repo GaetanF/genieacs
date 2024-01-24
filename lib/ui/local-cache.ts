@@ -68,6 +68,7 @@ async function fetchConfig(): Promise<[string, Config, UiConfig]> {
     index: {},
     overview: {},
     pageSize: null,
+    maxPageSize: null
   };
 
   const _config = {};

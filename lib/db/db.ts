@@ -36,7 +36,7 @@ export async function connect(): Promise<void> {
   collections.presets = db.collection("presets");
   collections.objects = db.collection("objects");
   collections.files = db.collection("fs.files");
-  collections.uploads = db.collection("fs.uploads");
+  collections.uploads = db.collection("uploads.files");
   collections.provisions = db.collection("provisions");
   collections.virtualParameters = db.collection("virtualParameters");
   collections.faults = db.collection("faults");

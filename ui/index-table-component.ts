@@ -2,6 +2,7 @@ import { ClosureComponent, Component, Children } from "mithril";
 import { m } from "./components.ts";
 import { getIcon } from "./icons.ts";
 import debounce from "../lib/common/debounce.ts";
+import config from "./config.ts";
 
 interface Attribute {
   id?: string;
@@ -9,7 +10,7 @@ interface Attribute {
   type?: string;
 }
 
-const MAX_PAGE_SIZE = 200;
+const MAX_PAGE_SIZE = config.ui.maxPageSize || 200;
 
 function renderTable(
   attributes: Attribute[],
