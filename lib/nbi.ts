@@ -2,7 +2,7 @@ import * as vm from "node:vm";
 import { IncomingMessage, ServerResponse } from "node:http";
 import { Collection, ObjectId } from "mongodb";
 import { getRevision, getConfig } from "./ui/local-cache.ts";
-import { filesBucket, collections } from "./db/db.ts";
+import { uploadsBucket, filesBucket, collections } from "./db/db.ts";
 import { optimizeProjection } from "./db/util.ts";
 import * as query from "./query.ts";
 import * as apiFunctions from "./api-functions.ts";
