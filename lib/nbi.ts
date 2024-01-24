@@ -14,6 +14,7 @@ import { flattenDevice } from "./ui/db.ts";
 import { getRequestOrigin } from "./forwarded.ts";
 import { acquireLock, releaseLock } from "./lock.ts";
 import { ResourceLockedError } from "./common/errors.ts";
+import { pipeline, Readable } from "stream";
 
 const DEVICE_TASKS_REGEX = /^\/devices\/([a-zA-Z0-9\-_%]+)\/tasks\/?$/;
 const TASKS_REGEX = /^\/tasks\/([a-zA-Z0-9\-_%]+)(\/[a-zA-Z_]*)?$/;
@@ -22,6 +23,7 @@ const TAGS_REGEX =
 const PRESETS_REGEX = /^\/presets\/([a-zA-Z0-9\-_%]+)\/?$/;
 const OBJECTS_REGEX = /^\/objects\/([a-zA-Z0-9\-_%]+)\/?$/;
 const FILES_REGEX = /^\/files\/([a-zA-Z0-9%!*'();:@&=+$,?#[\]\-_.~]+)\/?$/;
+const UPLOADS_REGEX = /^\/uploads\/([a-zA-Z0-9%!*'();:@&=+$,?#[\]\-_.~]+)\/?$/;
 const PING_REGEX = /^\/ping\/([a-zA-Z0-9\-_.:]+)\/?$/;
 const QUERY_REGEX = /^\/([a-zA-Z0-9_]+)\/?$/;
 const DELETE_DEVICE_REGEX = /^\/devices\/([a-zA-Z0-9\-_%]+)\/?$/;
@@ -537,6 +539,50 @@ async function handler(
       response.end();
     } else {
       response.writeHead(405, { Allow: "PUT, DELETE" });
+      response.end("405 Method Not Allowed");
+    }
+  } else if (UPLOADS_REGEX.test(url.pathname)) {
+    const filename = decodeURIComponent(
+        UPLOADS_REGEX.exec(url.pathname)[1]
+    );
+    if (request.method === "GET") {
+
+      collections['uploads'].findOne({ _id: filename }).then((file)=>{
+        if(!file){
+          response.writeHead(404);
+          response.end();
+        }else {
+          response.writeHead(200, {
+            "Content-Type": "application/octet-stream",
+            "Content-Length": file.length,
+          });
+          uploadsBucket.openDownloadStreamByName(filename).pipe(response)
+              .on('error', () => {
+                response.writeHead(404)
+              }).on('end', ()=>{
+            response.end();
+          });
+        }
+      }).catch(()=>{
+        response.writeHead(404);
+        response.end();
+      })
+    } else if (request.method === "DELETE") {
+      uploadsBucket.delete(filename as unknown as ObjectId, (err) => {
+        if (err) {
+          if (err.message.startsWith("FileNotFound")) {
+            response.writeHead(404);
+            response.end("404 Not Found");
+            return;
+          }
+          throw err;
+        }
+
+        response.writeHead(200);
+        response.end();
+      });
+    } else {
+      response.writeHead(405, { Allow: "GET, DELETE" });
       response.end("405 Method Not Allowed");
     }
   } else if (PING_REGEX.test(url.pathname)) {
